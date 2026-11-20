@@ -1482,9 +1482,7 @@ bool OverlayWidget::hasCopyMediaRestriction(bool skipPremiumCheck) const {
 			? !story->canDownloadIfPremium()
 			: !story->canDownloadChecked();
 	}
-	return (_history && !_history->peer->allowsForwarding())
-		|| (_message && _message->forbidsSaving())
-		|| (_history && _screenshotProtected);
+	return false; // 本地定制：允许保存/下载受保护内容，转发限制仍由上层处理。
 }
 
 bool OverlayWidget::showCopyMediaRestriction(bool skipPRemiumCheck) {

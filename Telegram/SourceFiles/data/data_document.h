@@ -283,6 +283,7 @@ public:
 	[[nodiscard]] bool hasWebLocation() const;
 	[[nodiscard]] bool isNull() const;
 	[[nodiscard]] MTPInputDocument mtpInput() const;
+	[[nodiscard]] uint64 accessHash() const { return _access; }
 	[[nodiscard]] QByteArray fileReference() const;
 	void refreshFileReference(const QByteArray &value);
 

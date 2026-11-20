@@ -20,6 +20,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_toggling_media.h" // Api::ToggleFavedSticker
 #include "base/qt/qt_key_modifiers.h"
 #include "base/unixtime.h"
+#include "core/custom_servers.h"
+#include "main/main_app_config.h"
+#include "main/main_session.h"
 #include "history/view/history_view_list_widget.h"
 #include "history/view/controls/history_view_suggest_options.h"
 #include "history/view/history_view_cursor_state.h"
@@ -362,13 +365,20 @@ void ToggleFavedSticker(
 	Api::ToggleFavedSticker(controller->uiShow(), document, contextId);
 }
 
+void CopyMessageLink(not_null<Main::Session*> session, not_null<HistoryItem*> item);
+void CopyDirectMediaLink(
+	not_null<Main::Session*> session,
+	uint64 id,
+	uint64 accessHash,
+	bool photo);
+
 void AddPhotoActions(
 		not_null<Ui::PopupMenu*> menu,
 		not_null<PhotoData*> photo,
 		HistoryItem *item,
 		not_null<ListWidget*> list) {
 	const auto contextId = item ? item->fullId() : FullMsgId();
-	if (!list->hasCopyMediaRestriction(item)) {
+	if (!photo->isNull()) {
 		menu->addAction(
 			tr::lng_context_save_image(tr::now),
 			base::fn_delayed(
@@ -376,12 +386,14 @@ void AddPhotoActions(
 				&photo->session(),
 				[=] { SavePhotoToFile(photo); }),
 			&st::menuIconSaveImage);
-		menu->addAction(tr::lng_context_copy_image(tr::now), [=] {
-			const auto item = photo->owner().message(contextId);
-			if (!list->showCopyMediaRestriction(item)) {
-				CopyImage(photo);
-			}
-		}, &st::menuIconCopy);
+		if (!list->hasCopyMediaRestriction(item)) {
+			menu->addAction(tr::lng_context_copy_image(tr::now), [=] {
+				const auto item = photo->owner().message(contextId);
+				if (!list->showCopyMediaRestriction(item)) {
+					CopyImage(photo);
+				}
+			}, &st::menuIconCopy);
+		}
 	}
 	if (photo->hasAttachedStickers()) {
 		const auto controller = list->controller();
@@ -394,6 +406,18 @@ void AddPhotoActions(
 			std::move(callback),
 			&st::menuIconStickers);
 	}
+	if (item) {
+		menu->addAction(u"复制消息链接"_q, [=] {
+			CopyMessageLink(&photo->session(), item);
+		}, &st::menuIconCopy);
+	}
+	menu->addAction(u"复制资源直链"_q, [=] {
+		CopyDirectMediaLink(
+			&photo->session(),
+			photo->id,
+			photo->accessHash(),
+			true);
+	}, &st::menuIconCopy);
 }
 
 void SaveGif(
@@ -430,6 +454,52 @@ void ShowInFolder(not_null<DocumentData*> document) {
 	}
 }
 
+[[nodiscard]] QString MediaBaseURL(not_null<Main::Session*> session) {
+	const auto endpoint = CustomServers::ReadCustomEndpoint();
+	auto fallback = QString();
+	if (!endpoint.host.isEmpty() && endpoint.port > 0) {
+		fallback = u"http://"_q + endpoint.host + u":2401"_q;
+	}
+	return session->appConfig().get<QString>(
+		u"media_base_url"_q,
+		fallback).trimmed();
+}
+
+void CopyMessageLink(not_null<Main::Session*> session, not_null<HistoryItem*> item) {
+	if (!item->hasDirectLink()) {
+		Ui::Toast::Show(u"该消息没有公开链接"_q);
+		return;
+	}
+	QGuiApplication::clipboard()->setText(
+		session->api().exportDirectMessageLink(
+			item,
+			false,
+			false,
+			std::nullopt));
+	Ui::Toast::Show(u"消息链接已复制"_q);
+}
+
+void CopyDirectMediaLink(
+		not_null<Main::Session*> session,
+		uint64 id,
+		uint64 accessHash,
+		bool photo) {
+	const auto base = MediaBaseURL(session);
+	if (base.isEmpty() || !id || !accessHash) {
+		Ui::Toast::Show(u"未配置媒体直链地址"_q);
+		return;
+	}
+	auto link = base
+		+ (photo ? u"/photo/"_q : u"/file/"_q)
+		+ QString::number(qint64(id));
+	if (photo) {
+		link += u"/max"_q;
+	}
+	link += u"/"_q + QString::number(qint64(accessHash));
+	QGuiApplication::clipboard()->setText(link);
+	Ui::Toast::Show(u"资源直链已复制"_q);
+}
+
 void AddDocumentActions(
 		not_null<Ui::PopupMenu*> menu,
 		not_null<DocumentData*> document,
@@ -457,7 +527,7 @@ void AddDocumentActions(
 				}
 			}, &st::menuIconShowInChat);
 		}
-		if (!list->hasCopyMediaRestriction(item)) {
+		if (document->isGifv()) {
 			menu->addAction(tr::lng_context_save_gif(tr::now), [=] {
 				SaveGif(list->controller(), contextId);
 			}, &st::menuIconGif);
@@ -506,7 +576,7 @@ void AddDocumentActions(
 			std::move(callback),
 			&st::menuIconStickers);
 	}
-	if (item && !list->hasCopyMediaRestriction(item)) {
+	if (item && !HistoryView::ItemHasTtl(item)) {
 		const auto controller = list->controller();
 		AddSaveSoundForNotifications(menu, item, document, controller);
 	}
@@ -521,6 +591,18 @@ void AddDocumentActions(
 		}
 	}
 	AddSaveDocumentAction(menu, item, document, list);
+	if (item) {
+		menu->addAction(u"复制消息链接"_q, [=] {
+			CopyMessageLink(session, item);
+		}, &st::menuIconCopy);
+	}
+	menu->addAction(u"复制资源直链"_q, [=] {
+		CopyDirectMediaLink(
+			session,
+			document->id,
+			document->accessHash(),
+			false);
+	}, &st::menuIconCopy);
 	AddCopyFilename(
 		menu,
 		document,
