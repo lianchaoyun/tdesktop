@@ -3505,13 +3505,13 @@ bool HistoryItem::canStopPoll() const {
 }
 
 bool HistoryItem::forbidsForward() const {
-	return (_flags & MessageFlag::NoForwards);
+	// Ignore the server-provided noforwards flag: the restriction is only
+	// enforced client-side, so keep the local UI fully functional.
+	return false;
 }
 
 bool HistoryItem::forbidsSaving() const {
-	if (forbidsForward()) {
-		return true;
-	} else if (_media && _media->ttlSeconds()) {
+	if (_media && _media->ttlSeconds()) {
 		return true;
 	} else if (const auto invoice = _media ? _media->invoice() : nullptr) {
 		return HasExtendedMedia(*invoice);

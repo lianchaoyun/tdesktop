@@ -29,9 +29,13 @@ public:
 	[[nodiscard]] bool sendLargePhotos() const {
 		return (_flags & Flag::SendLargePhotos) != 0;
 	}
+	[[nodiscard]] bool sendOriginalPhotos() const {
+		return (_flags & Flag::SendOriginalPhotos) != 0;
+	}
 	void setGroupFiles(bool value);
 	void setSendImagesAsPhotos(bool value);
 	void setSendLargePhotos(bool value);
+	void setSendOriginalPhotos(bool value);
 	void setHasCompressedStickers(bool value);
 
 	[[nodiscard]] inline bool operator<(const SendFilesWay &other) const {
@@ -67,6 +71,7 @@ private:
 		SendImagesAsPhotos = (1 << 1),
 		HasCompressedStickers = (1 << 2),
 		SendLargePhotos = (1 << 3),
+		SendOriginalPhotos = (1 << 4),
 
 		Default = GroupFiles | SendImagesAsPhotos,
 	};

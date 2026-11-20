@@ -268,6 +268,7 @@ public:
 		std::shared_ptr<SendingAlbum> album;
 		bool forceFile = false;
 		bool sendLargePhotos = false;
+		bool sendOriginalPhotos = false;
 		std::shared_ptr<Media::Encode::Job> animationJob;
 		bool animationAsGif = true;
 		std::shared_ptr<Ui::PreparedFileArchive> archive;
@@ -343,6 +344,7 @@ private:
 	bool _spoiler = false;
 	bool _forceFile = false;
 	bool _sendLargePhotos = false;
+	bool _sendOriginalPhotos = false;
 	std::shared_ptr<Media::Encode::Job> _animationJob;
 	bool _animationAsGif = true;
 	std::shared_ptr<Ui::PreparedFileArchive> _archive;

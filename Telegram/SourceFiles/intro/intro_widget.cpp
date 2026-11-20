@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/wrap/fade_wrap.h"
 #include "ui/ui_utility.h"
 #include "boxes/abstract_box.h"
+#include "core/custom_servers_ui.h"
 #include "core/update_checker.h"
 #include "core/application.h"
 #include "mtproto/mtproto_dc_options.h"
@@ -89,6 +90,12 @@ Widget::Widget(
 		this,
 		tr::lng_menu_settings(),
 		st::defaultBoxButton))
+, _server(
+	this,
+	object_ptr<Ui::RoundButton>(
+		this,
+		rpl::single(u"服务器"_q),
+		st::defaultBoxButton))
 , _next(
 	this,
 	object_ptr<Ui::RoundButton>(this, nullptr, *_nextStyle))
@@ -97,6 +104,9 @@ Widget::Widget(
 		account,
 		rpl::single(true))) {
 	_settings->entity()->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+	_server->entity()->setClickedCallback([=] {
+		CustomServers::ShowAddressBox(controller, account->index());
+	});
 	controller->setDefaultFloatPlayerDelegate(floatPlayerDelegate());
 
 	getData()->country = ComputeNewAccountCountry();
@@ -416,6 +426,7 @@ void Widget::historyMove(StackAction action, Animate animate) {
 
 	auto stepHasCover = getStep()->hasCover();
 	_settings->toggle(!stepHasCover, anim::type::normal);
+	_server->toggle(!stepHasCover, anim::type::normal);
 	if (_testModeLabel) {
 		_testModeLabel->toggle(!stepHasCover, anim::type::normal);
 	}
@@ -444,6 +455,7 @@ void Widget::fixOrder() {
 	_next->raise();
 	if (_update) _update->raise();
 	if (_changeLanguage) _changeLanguage->raise();
+	_server->raise();
 	_settings->raise();
 	_back->raise();
 	floatPlayerRaiseAll();
@@ -453,6 +465,7 @@ void Widget::fixOrder() {
 void Widget::moveToStep(Step *step, StackAction action, Animate animate) {
 	appendStep(step);
 	_back->raise();
+	_server->raise();
 	_settings->raise();
 	if (_update) {
 		_update->raise();
@@ -709,6 +722,7 @@ void Widget::showControls() {
 	_connecting->setForceHidden(false);
 	auto hasCover = getStep()->hasCover();
 	_settings->toggle(!hasCover, anim::type::instant);
+	_server->toggle(!hasCover, anim::type::instant);
 	if (_testModeLabel) {
 		_testModeLabel->toggle(!hasCover, anim::type::instant);
 	}
@@ -759,6 +773,7 @@ void Widget::hideControls() {
 	_next->hide(anim::type::instant);
 	_connecting->setForceHidden(true);
 	_settings->hide(anim::type::instant);
+	_server->hide(anim::type::instant);
 	if (_testModeLabel) _testModeLabel->hide(anim::type::instant);
 	if (_update) _update->hide(anim::type::instant);
 	if (_changeLanguage) _changeLanguage->hide(anim::type::instant);
@@ -830,16 +845,17 @@ void Widget::updateControlsGeometry() {
 		getStep()->hasCover() ? st::introCoverHeight : 0,
 		shown);
 	_settings->moveToRight(skip, controlsTop + skip);
+	_server->moveToRight(skip + _settings->width() + skip, _settings->y());
 	if (_testModeLabel) {
 		_testModeLabel->moveToRight(
-			skip + _settings->width() + skip,
+			skip + _settings->width() + _server->width() + skip * 2,
 			_settings->y()
 				+ (_settings->height()
 				- _testModeLabel->height()) / 2);
 	}
 	if (_update) {
 		_update->moveToRight(
-			skip + _settings->width() + skip,
+			skip + _settings->width() + _server->width() + skip * 2,
 			_settings->y());
 	}
 	_back->moveToLeft(0, controlsTop);

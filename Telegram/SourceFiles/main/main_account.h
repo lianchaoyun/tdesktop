@@ -38,6 +38,10 @@ public:
 		return *_domain;
 	}
 
+	[[nodiscard]] int index() const {
+		return _index;
+	}
+
 	[[nodiscard]] Storage::Domain &domainLocal() const;
 
 	[[nodiscard]] Storage::StartResult legacyStart(
@@ -144,6 +148,7 @@ private:
 
 	const not_null<Domain*> _domain;
 	const std::unique_ptr<Storage::Account> _local;
+	const int _index;
 
 	std::unique_ptr<MTP::Instance> _mtp;
 	rpl::variable<MTP::Instance*> _mtpValue;

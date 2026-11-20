@@ -1745,14 +1745,9 @@ void PeerData::processTopics(const MTPVector<MTPForumTopic> &topics) {
 }
 
 bool PeerData::allowsForwarding() const {
-	if (const auto user = asUser()) {
-		return user->allowsForwarding();
-	} else if (const auto channel = asChannel()) {
-		return channel->allowsForwarding();
-	} else if (const auto chat = asChat()) {
-		return chat->allowsForwarding();
-	}
-	return false;
+	// noforwards is a server-side restriction on forwarding; locally we
+	// ignore it so that saving and copying stay available.
+	return isUser() || isChannel() || isChat();
 }
 
 Data::RestrictionCheckResult PeerData::amRestricted(

@@ -1,4 +1,4 @@
-import os, sys, pprint, re, json, pathlib, hashlib, subprocess, glob, tempfile, plistlib
+﻿import os, sys, pprint, re, json, pathlib, hashlib, subprocess, glob, tempfile, plistlib
 
 executePath = os.getcwd()
 sys.dont_write_bytecode = True
@@ -609,7 +609,7 @@ stage('lzma', """
 win:
     git clone https://github.com/desktop-app/lzma.git
     cd lzma\\C\\Util\\LzmaLib
-    SET "ToolsetProp="
+    SET "ToolsetProp=/property:PlatformToolset=v145"
 winarm:
     SET "ToolsetProp=/property:PlatformToolset=v145"
 win:
@@ -620,8 +620,9 @@ release:
 
 stage('xz', """
 !win:
-    git clone -b v5.4 https://github.com/tukaani-project/xz.git
+    git clone --depth 1 --no-checkout -b v5.4 https://github.com/tukaani-project/xz.git
     cd xz
+    git fetch --depth 1 origin 05af863c3166cddeb4ab935829b14e995c8346b4
     git checkout 05af863c3166cddeb4ab935829b14e995c8346b4
     sed -i '' '\\@check_symbol_exists(futimens "sys/types.h;sys/stat.h" HAVE_FUTIMENS)@d' CMakeLists.txt
     CFLAGS="$UNGUARDED" CPPFLAGS="$UNGUARDED" cmake -B build . \\
@@ -707,7 +708,7 @@ mac:
 """)
 
 stage('openssl3', """
-    git clone -b openssl-3.5.9 https://github.com/openssl/openssl openssl3
+    git clone -b openssl-3.5.9 --depth 1 https://github.com/openssl/openssl openssl3
     cd openssl3
 win32:
     perl Configure no-shared no-tests debug-VC-WIN32 /FS
@@ -754,7 +755,7 @@ mac:
 """)
 
 stage('opus', """
-    git clone -b v1.5.2 https://github.com/xiph/opus.git
+    git clone -b v1.5.2 --depth 1 https://github.com/xiph/opus.git
     cd opus
 win:
     cmake -B out . ^
@@ -832,7 +833,7 @@ win:
 
 # Somehow in x86 Debug build dav1d crashes on AV1 10bpc videos.
 stage('dav1d', """
-    git clone -b 1.5.4 https://code.videolan.org/videolan/dav1d.git
+    git clone -b 1.5.4 --depth 1 https://code.videolan.org/videolan/dav1d.git
     cd dav1d
 win32:
     SET "TARGET=x86"
@@ -897,7 +898,7 @@ mac:
 """)
 
 stage('openh264', """
-    git clone -b v2.6.0 https://github.com/cisco/openh264.git
+    git clone -b v2.6.0 --depth 1 https://github.com/cisco/openh264.git
     cd openh264
 win32:
     SET "TARGET=x86"
@@ -955,7 +956,7 @@ mac:
 """)
 
 stage('libavif', """
-    git clone -b v1.4.2 https://github.com/AOMediaCodec/libavif.git
+    git clone -b v1.4.2 --depth 1 https://github.com/AOMediaCodec/libavif.git
     cd libavif
 win:
     cmake . ^
@@ -984,7 +985,7 @@ mac:
 """)
 
 stage('libwebp', """
-    git clone -b v1.6.0 https://github.com/webmproject/libwebp.git
+    git clone -b v1.6.0 --depth 1 https://github.com/webmproject/libwebp.git
     cd libwebp
 win:
     nmake /f Makefile.vc CFG=debug-static OBJDIR=out RTLIBCFG=static all
@@ -1023,7 +1024,7 @@ mac:
 """)
 
 stage('libjxl', """
-    git clone -b v0.12.0 --recursive --shallow-submodules https://github.com/libjxl/libjxl.git
+    git clone -b v0.12.0 --depth 1 --recursive --shallow-submodules https://github.com/libjxl/libjxl.git
     cd libjxl
 """ + setVar("cmake_defines", """
     -DBUILD_SHARED_LIBS=OFF
@@ -1066,7 +1067,7 @@ mac:
 """)
 
 stage('libvpx', """
-    git clone https://github.com/webmproject/libvpx.git
+    git clone --depth 1 -b v1.14.1 https://github.com/webmproject/libvpx.git
 depends:patches/libvpx/*.patch
     cd libvpx
     git checkout v1.14.1
@@ -1076,6 +1077,7 @@ win:
     SET PATH=%THIRDPARTY_DIR%\\msys64\\usr\\bin;%PATH%
     SET CHERE_INVOKING=enabled_from_arguments
     SET MSYS2_PATH_TYPE=inherit
+    powershell -Command "(Get-Content build/make/gen_msvs_vcxproj.sh -Raw) -replace 'PlatformToolset v143','PlatformToolset v145' | Set-Content build/make/gen_msvs_vcxproj.sh -NoNewline"
 
 win32:
     SET "TOOLCHAIN=x86-win32-vs17"
@@ -1128,7 +1130,7 @@ mac:
 """)
 
 stage('liblcms2', """
-    git clone -b lcms2.16 https://github.com/mm2/Little-CMS.git liblcms2
+    git clone -b lcms2.16 --depth 1 https://github.com/mm2/Little-CMS.git liblcms2
     cd liblcms2
 win:
 depends:python/Scripts/activate.bat
@@ -1163,15 +1165,15 @@ mac:
 
 stage('nv-codec-headers', """
 win:
-    git clone -b n12.1.14.0 https://github.com/FFmpeg/nv-codec-headers.git
+    git clone -b n12.1.14.0 --depth 1 https://github.com/FFmpeg/nv-codec-headers.git
 """)
 
 stage('regex', """
-    git clone -b boost-1.83.0 https://github.com/boostorg/regex.git
+    git clone -b boost-1.83.0 --depth 1 https://github.com/boostorg/regex.git
 """)
 
 stage('ffmpeg', """
-    git clone -b n8.1.3 https://github.com/FFmpeg/FFmpeg.git ffmpeg
+    git clone -b n8.1.3 --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg
     cd ffmpeg
 win:
 depends:patches/ffmpeg.patch
@@ -1354,7 +1356,7 @@ mac:
 
 stage('libheif', """
 depends:patches/libheif.patch
-    git clone -b v1.23.5 https://github.com/strukturag/libheif.git
+    git clone -b v1.23.5 --depth 1 https://github.com/strukturag/libheif.git
     cd libheif
     git apply ../patches/libheif.patch
 win:
@@ -1416,7 +1418,7 @@ mac:
 """)
 
 stage('openal-soft', """
-    git clone https://github.com/telegramdesktop/openal-soft.git
+    git clone --filter=blob:none --no-checkout https://github.com/telegramdesktop/openal-soft.git
     cd openal-soft
 win:
     git checkout 00cb9b649c
@@ -1495,7 +1497,7 @@ depends:patches/breakpad.diff
 win:
     SET "PYTHONUTF8=1"
     SET "FolderPostfix="
-    SET "ToolsetProp="
+    SET "ToolsetProp=/property:PlatformToolset=v145"
 win64:
     SET "FolderPostfix=_x64"
 winarm:
@@ -1594,8 +1596,9 @@ win32_win64:
 if win:
     stage('tg_angle', """
 win32_win64:
-    git clone https://github.com/desktop-app/tg_angle.git
+    git clone --depth 1 --no-checkout https://github.com/desktop-app/tg_angle.git
     cd tg_angle
+    git fetch --depth 1 origin 9fd174a91e6155d1006c5f427366b23006f5d899
     git checkout 9fd174a91e6155d1006c5f427366b23006f5d899
     cmake -B out ^
         -DTG_ANGLE_SPECIAL_TARGET=%SPECIAL_TARGET% ^
@@ -1834,8 +1837,9 @@ win:
 """)
 
 stage('tg_owt', """
-    git clone https://github.com/desktop-app/tg_owt.git
+    git clone --depth 1 --no-checkout https://github.com/desktop-app/tg_owt.git
     cd tg_owt
+    git fetch --depth 1 origin 49ceed3985d8626b3a24bdb14d9c593a115cc6e8
     git checkout 49ceed3985d8626b3a24bdb14d9c593a115cc6e8
     git submodule update --init --recursive
 win:
@@ -1953,7 +1957,7 @@ mac:
 """)
 
 stage('tde2e', """
-    git clone https://github.com/tdlib/td.git tde2e
+    git clone --filter=blob:none --no-checkout https://github.com/tdlib/td.git tde2e
     cd tde2e
     git checkout 51743df
 win:
@@ -2040,7 +2044,7 @@ tlottieRevision = '92df98dc20'
 walletEngineRevision = 'e59e0d89d7ee90c388bf36e3334c5b276f396697'
 stage('tlottie', """
 version: 2
-    git clone https://github.com/dkaraush/tlottie.git
+    git clone --filter=blob:none --no-checkout https://github.com/dkaraush/tlottie.git
     cd tlottie
     git checkout """ + tlottieRevision + """
 """)
@@ -2053,7 +2057,7 @@ win:
 mac:
     export GIT_LFS_SKIP_SMUDGE=1
 win_mac:
-    git clone https://github.com/i582/wallet-engine.git
+    git clone --filter=blob:none --no-checkout https://github.com/i582/wallet-engine.git
     cd wallet-engine
     git checkout """ + walletEngineRevision + """
     git apply ../patches/wallet-engine.patch

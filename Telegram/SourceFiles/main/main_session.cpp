@@ -365,7 +365,10 @@ rpl::producer<> Session::downloaderTaskFinished() const {
 }
 
 bool Session::premium() const {
-	return _user->isPremium();
+	// Custom self-hosted build: every account behaves as a Premium account, so
+	// the client unlocks the extra account slots and Premium-only limits even
+	// when the self-hosted server does not sell subscriptions.
+	return true;
 }
 
 bool Session::premiumPossible() const {

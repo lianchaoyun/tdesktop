@@ -11,6 +11,7 @@ namespace Ui {
 namespace {
 
 constexpr auto kSerializedSendLargePhotos = int32(4);
+constexpr auto kSerializedSendOriginalPhotos = int32(8);
 
 } // namespace
 
@@ -44,6 +45,14 @@ void SendFilesWay::setSendLargePhotos(bool value) {
 	}
 }
 
+void SendFilesWay::setSendOriginalPhotos(bool value) {
+	if (value) {
+		_flags |= Flag::SendOriginalPhotos;
+	} else {
+		_flags &= ~Flag::SendOriginalPhotos;
+	}
+}
+
 void SendFilesWay::setHasCompressedStickers(bool value) {
 	if (value) {
 		_flags |= Flag::HasCompressedStickers;
@@ -69,19 +78,24 @@ int32 SendFilesWay::serialize() const {
 	if (sendLargePhotos()) {
 		result |= kSerializedSendLargePhotos;
 	}
+	if (sendOriginalPhotos()) {
+		result |= kSerializedSendOriginalPhotos;
+	}
 	return result;
 }
 
 std::optional<SendFilesWay> SendFilesWay::FromSerialized(int32 value) {
-	if (value < 0 || value > 7) {
+	if (value < 0 || value > 15) {
 		return std::nullopt;
 	}
 	const auto sendLargePhotos = (value & kSerializedSendLargePhotos) != 0;
-	value &= ~kSerializedSendLargePhotos;
+	const auto sendOriginalPhotos = (value & kSerializedSendOriginalPhotos) != 0;
+	value &= ~(kSerializedSendLargePhotos | kSerializedSendOriginalPhotos);
 	auto result = SendFilesWay();
 	result.setGroupFiles((value == 0) || (value == 3));
 	result.setSendImagesAsPhotos((value == 0) || (value == 1));
 	result.setSendLargePhotos(sendLargePhotos);
+	result.setSendOriginalPhotos(sendOriginalPhotos);
 	return result;
 }
 

@@ -115,6 +115,11 @@ public:
 	bool loadFromFile(const QString &path);
 	bool writeToFile(const QString &path) const;
 
+	// Custom build: whether the options are locked to an endpoints file.
+	[[nodiscard]] bool immutable() const {
+		return _immutable;
+	}
+
 private:
 	bool applyOneGuarded(
 		DcId dcId,

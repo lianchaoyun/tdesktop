@@ -44,6 +44,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 
 #include <QtCore/QBuffer>
+#include <QtCore/QFile>
 #include <QtGui/QImageWriter>
 
 namespace {
@@ -522,6 +523,7 @@ FileLoadTask::FileLoadTask(Args &&args)
 , _spoiler(args.spoiler)
 , _forceFile(args.forceFile)
 , _sendLargePhotos(args.sendLargePhotos)
+, _sendOriginalPhotos(args.sendOriginalPhotos)
 , _animationJob(std::move(args.animationJob))
 , _animationAsGif(args.animationAsGif)
 , _archive(std::move(args.archive)) {
@@ -794,6 +796,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
 	auto fullimage = QImage();
 	auto fullimagebytes = QByteArray();
 	auto fullimageformat = QByteArray();
+	auto originalimagebytes = QByteArray();
 	auto info = _filepath.isEmpty() ? QFileInfo() : QFileInfo(_filepath);
 	if (info.exists()) {
 		if (info.isDir()) {
@@ -817,6 +820,12 @@ void FileLoadTask::process(ProcessArgs &&args) {
 			fullimage = base::take(image->data);
 			fullimagebytes = base::take(image->bytes);
 			fullimageformat = base::take(image->format);
+			if (_sendOriginalPhotos && !_filepath.isEmpty() && image->modifications.empty()) {
+				auto file = QFile(_filepath);
+				if (file.open(QIODevice::ReadOnly)) {
+					originalimagebytes = file.readAll();
+				}
+			}
 			if (!Core::IsMimeSticker(filemime)
 				&& fullimageformat != u"jpeg"_q) {
 				fullimage = Images::Opaque(std::move(fullimage));
@@ -864,6 +873,9 @@ void FileLoadTask::process(ProcessArgs &&args) {
 					fullimage = base::take(image->data);
 					fullimagebytes = base::take(image->bytes);
 					fullimageformat = base::take(image->format);
+					if (_sendOriginalPhotos && image->modifications.empty()) {
+						originalimagebytes = _content;
+					}
 				}
 			}
 			const auto mimeType = Core::MimeTypeForData(_content);
@@ -893,6 +905,9 @@ void FileLoadTask::process(ProcessArgs &&args) {
 				fullimage = base::take(image->data);
 				fullimagebytes = base::take(image->bytes);
 				fullimageformat = base::take(image->format);
+				originalimagebytes = image->modifications.empty()
+					? fullimagebytes
+					: QByteArray();
 			}
 		}
 		if (!fullimage.isNull() && fullimage.width() > 0) {
@@ -1138,13 +1153,37 @@ void FileLoadTask::process(ProcessArgs &&args) {
 				}
 				auto medium = (w > 320 || h > 320) ? fullimage.scaled(320, 320, Qt::KeepAspectRatio, Qt::SmoothTransformation) : fullimage;
 
-				const auto limit = PhotoSideLimit(_sendLargePhotos);
-				const auto downscaled = (w > limit || h > limit);
-				auto full = downscaled ? fullimage.scaled(limit, limit, Qt::KeepAspectRatio, Qt::SmoothTransformation) : fullimage;
-				if (downscaled) {
-					fullimagebytes = fullimageformat = QByteArray();
+				auto full = fullimage;
+				if (_sendOriginalPhotos) {
+					filedata = originalimagebytes;
+					if (filedata.isEmpty()) {
+						auto png = QByteArray();
+						auto buffer = QBuffer(&png);
+						buffer.open(QIODevice::WriteOnly);
+						auto writer = QImageWriter(&buffer, "PNG");
+						if (writer.write(fullimage)) {
+							filedata = png;
+						}
+					}
+					if (filedata.isEmpty()) {
+						filedata = ComputePhotoJpegBytes(
+							full,
+							QByteArray(),
+							QByteArray());
+					}
+					filesize = _result->filesize = filedata.size();
+				} else {
+					const auto limit = PhotoSideLimit(_sendLargePhotos);
+					const auto downscaled = (w > limit || h > limit);
+					if (downscaled) {
+						full = fullimage.scaled(limit, limit, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+						fullimagebytes = fullimageformat = QByteArray();
+					}
+					filedata = ComputePhotoJpegBytes(full, fullimagebytes, fullimageformat);
+					if (filesize < 0) {
+						filesize = _result->filesize = filedata.size();
+					}
 				}
-				filedata = ComputePhotoJpegBytes(full, fullimagebytes, fullimageformat);
 
 				photoThumbs.emplace('m', PreparedPhotoThumb{ .image = medium });
 				photoSizes.push_back(MTP_photoSize(MTP_string("m"), MTP_int(medium.width()), MTP_int(medium.height()), MTP_int(0)));

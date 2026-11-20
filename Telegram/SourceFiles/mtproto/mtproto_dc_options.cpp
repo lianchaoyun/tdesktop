@@ -12,7 +12,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "mtproto/connection_tcp.h"
 #include "storage/serialize_common.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QRegularExpression>
 
 namespace MTP {
@@ -151,6 +153,35 @@ void DcOptions::readBuiltInPublicKeys() {
 		} else {
 			LOG(("MTP Error: could not read this public RSA key:"));
 			LOG((key));
+		}
+	}
+	// Custom build: allow an extra public key for a self-hosted server.
+	// A key copied next to the exe keeps a directly launched build portable;
+	// the absolute build-tree path remains the development fallback.
+	const auto envPath = qEnvironmentVariable("TDESKTOP_RSA_KEY");
+	const auto localPath = QCoreApplication::applicationDirPath()
+		+ u"/tdata/server_rsa.pub.pem"_q;
+	const auto path = !envPath.isEmpty()
+		? envPath
+		: QFileInfo::exists(localPath)
+		? localPath
+		: u"E:\\game\\Telegram\\server\\owpengram-232\\data\\server_rsa.pub.pem"_q;
+	if (!path.isEmpty()) {
+		QFile file(path);
+		if (file.open(QIODevice::ReadOnly)) {
+			const auto data = file.readAll();
+			auto parsed = RSAPublicKey(bytes::make_span(
+				data.constData(),
+				data.size()));
+			if (parsed.valid()) {
+				const auto fingerprint = parsed.fingerprint();
+				_publicKeys.emplace(fingerprint, std::move(parsed));
+				LOG(("MTP Info: loaded custom RSA key %1").arg(fingerprint));
+			} else {
+				LOG(("MTP Error: could not read custom RSA key: %1").arg(path));
+			}
+		} else {
+			LOG(("MTP Error: could not open custom RSA key: %1").arg(path));
 		}
 	}
 }

@@ -36,8 +36,10 @@ public:
 		std::unique_ptr<Account> account;
 	};
 
-	static constexpr auto kMaxAccounts = 3;
-	static constexpr auto kPremiumMaxAccounts = 6;
+	// Custom self-hosted build: allow up to 10 accounts for every install
+	// instead of the official 3 (free) / 6 (Premium) limits.
+	static constexpr auto kMaxAccounts = 10;
+	static constexpr auto kPremiumMaxAccounts = 10;
 
 	explicit Domain(const QString &dataName);
 	~Domain();

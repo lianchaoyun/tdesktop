@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/platform/base_platform_info.h"
 #include "core/application.h"
+#include "core/custom_servers.h"
 #include "storage/storage_account.h"
 #include "storage/storage_domain.h" // Storage::StartResult.
 #include "storage/serialize_common.h"
@@ -48,7 +49,8 @@ Account::Account(not_null<Domain*> domain, const QString &dataName, int index)
 : _domain(domain)
 , _local(std::make_unique<Storage::Account>(
 	this,
-	ComposeDataString(dataName, index))) {
+	ComposeDataString(dataName, index)))
+, _index(index) {
 }
 
 Account::~Account() {
@@ -77,10 +79,59 @@ std::unique_ptr<MTP::Config> Account::prepareToStart(
 
 void Account::start(std::unique_ptr<MTP::Config> config) {
 	_appConfig = std::make_unique<AppConfig>(this);
-	startMtp(config
-		? std::move(config)
-		: std::make_unique<MTP::Config>(
-			Core::App().fallbackProductionConfig()));
+	if (!config) {
+		config = std::make_unique<MTP::Config>(
+			Core::App().fallbackProductionConfig());
+	}
+	// Custom build: each account slot talks either to the official servers or
+	// to the self-hosted one (TDESKTOP_DC_ACCOUNT), and the Settings switches
+	// can mute either server completely.
+	const auto custom = CustomServers::MatchesAccount(_index);
+	const auto serverEnabled = custom
+		? CustomServers::SelfHostedEnabled()
+		: CustomServers::OfficialEnabled();
+	// A path saved through Settings is an explicit operator choice, so it wins
+	// over the launcher environment; the env remains the fallback for script
+	// based launches that do not touch the UI.
+	auto endpointPath = custom
+		? CustomServers::StoredEndpointsFile()
+		: QString();
+	if (custom && endpointPath.isEmpty()) {
+		endpointPath = qEnvironmentVariable("TDESKTOP_DC_ENDPOINTS");
+	}
+	if (custom && endpointPath.isEmpty()) {
+		endpointPath = CustomServers::DefaultEndpointsFile();
+	}
+	if (!serverEnabled || (custom && endpointPath.isEmpty())) {
+		const auto blocked = CustomServers::BlockedEndpointsFile();
+		const auto loaded = blocked.isEmpty()
+			? false
+			: config->dcOptions().loadFromFile(blocked);
+		LOG(("Custom servers: account %1 %2 (%3)"
+			).arg(_index
+			).arg(serverEnabled
+				? "self-hosted endpoints missing"
+				: "disabled"
+			).arg(loaded ? "blocked" : "block failed"));
+	} else if (custom) {
+		// The self-hosted server lives in DC 2. A slot cloned from an official
+		// account would otherwise keep the official account's main DC and
+		// therefore have no matching endpoint in the endpoints file.
+		_mtpFields.mainDcId = MTP::Instance::Fields::kDefaultMainDc;
+		const auto loaded = config->dcOptions().loadFromFile(endpointPath);
+		LOG(("Custom endpoints: account %1, %2 (%3)"
+			).arg(_index
+			).arg(endpointPath
+			).arg(loaded ? "loaded" : "failed"));
+	} else if (config->dcOptions().immutable()) {
+		// A self-hosted account's locked endpoints must not leak into this
+		// account when it is added while the self-hosted one is active.
+		config = std::make_unique<MTP::Config>(
+			Core::App().fallbackProductionConfig());
+		LOG(("Custom endpoints: account %1 uses the official servers"
+			).arg(_index));
+	}
+	startMtp(std::move(config));
 	_appConfig->start();
 	watchProxyChanges();
 	watchSessionChanges();

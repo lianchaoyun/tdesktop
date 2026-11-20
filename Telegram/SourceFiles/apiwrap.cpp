@@ -4391,6 +4391,7 @@ void ApiWrap::sendFiles(
 			.album = album,
 			.forceFile = forceFile,
 			.sendLargePhotos = file.sendLargePhotos,
+			.sendOriginalPhotos = file.sendOriginalPhotos,
 			.animationJob = file.animationJob,
 			.animationAsGif = animationAsGif,
 			.archive = file.archive,

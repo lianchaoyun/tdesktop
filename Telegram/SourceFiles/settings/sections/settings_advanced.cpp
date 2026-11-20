@@ -21,6 +21,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/download_path_box.h"
 #include "core/application.h"
 #include "core/core_settings.h"
+#include "core/custom_servers.h"
+#include "core/custom_servers_ui.h"
 #include "core/file_utilities.h"
 #include "core/launcher.h"
 #include "core/update_channel.h"
@@ -95,6 +97,65 @@ using namespace Builder;
 	return result;
 }
 #endif // Q_OS_MAC && !OS_MAC_STORE
+
+void BuildCustomServersSection(SectionBuilder &builder) {
+	const auto controller = builder.controller();
+	builder.addSkip();
+	builder.addSubsectionTitle({
+		.id = u"advanced/custom_servers"_q,
+		.title = rpl::single(u"服务器"_q),
+		.keywords = { u"server"_q, u"official"_q, u"custom"_q },
+	});
+
+	const auto official = builder.addButton({
+		.id = u"advanced/official_server"_q,
+		.title = rpl::single(u"官方服务器"_q),
+		.st = &st::settingsButtonNoIcon,
+		.label = rpl::single(u"关闭后不再与官方交互，重启客户端生效"_q),
+		.toggled = rpl::single(CustomServers::OfficialEnabled()),
+		.keywords = { u"official"_q, u"telegram"_q, u"server"_q },
+	});
+	if (official) {
+		official->toggledValue(
+		) | rpl::filter([](bool value) {
+			return (value != CustomServers::OfficialEnabled());
+		}) | rpl::on_next([=](bool value) {
+			CustomServers::SetOfficialEnabled(value);
+		}, official->lifetime());
+	}
+
+	const auto selfHosted = builder.addButton({
+		.id = u"advanced/self_hosted_server"_q,
+		.title = rpl::single(u"自定义服务器"_q),
+		.st = &st::settingsButtonNoIcon,
+		.label = rpl::single(u"本地 MTProto 服务，重启客户端生效"_q),
+		.toggled = rpl::single(CustomServers::SelfHostedEnabled()),
+		.keywords = { u"custom"_q, u"self"_q, u"hosted"_q, u"server"_q },
+	});
+	if (selfHosted) {
+		selfHosted->toggledValue(
+		) | rpl::filter([](bool value) {
+			return (value != CustomServers::SelfHostedEnabled());
+		}) | rpl::on_next([=](bool value) {
+			CustomServers::SetSelfHostedEnabled(value);
+		}, selfHosted->lifetime());
+	}
+
+	builder.addButton({
+		.id = u"advanced/custom_server_address"_q,
+		.title = rpl::single(u"服务器地址"_q),
+		.st = &st::settingsButtonNoIcon,
+		.label = rpl::single(CustomServers::CustomEndpointAddress()),
+		.onClick = [=] {
+			if (controller) {
+				CustomServers::ShowAddressBox(&controller->window());
+			}
+		},
+		.keywords = { u"address"_q, u"host"_q, u"port"_q, u"server"_q },
+	});
+
+	builder.addSkip(st::settingsCheckboxesSkip);
+}
 
 void BuildDataStorageSection(SectionBuilder &builder) {
 	const auto controller = builder.controller();
@@ -1366,6 +1427,7 @@ const auto kMeta = BuildHelper({
 		BuildUpdateSection(builder, true);
 	}
 	BuildDataStorageSection(builder);
+	BuildCustomServersSection(builder);
 	BuildAutoDownloadSection(builder);
 	BuildWindowTitleSection(builder);
 #if !defined Q_OS_WIN && !defined Q_OS_MAC

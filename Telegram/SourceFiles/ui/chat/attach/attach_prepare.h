@@ -121,6 +121,7 @@ struct PreparedFile {
 	bool spoiler = false;
 	bool selected = false;
 	bool sendLargePhotos = false;
+	bool sendOriginalPhotos = false;
 	std::shared_ptr<Media::Encode::Job> animationJob;
 	std::shared_ptr<PreparedFileArchive> archive;
 };

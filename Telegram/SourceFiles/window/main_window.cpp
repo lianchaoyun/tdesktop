@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_account.h" // Account::sessionValue.
 #include "main/main_domain.h"
 #include "core/application.h"
+#include "core/custom_servers.h"
 #include "core/sandbox.h"
 #include "core/shortcuts.h"
 #include "core/update_channel.h"
@@ -920,11 +921,17 @@ void MainWindow::updateTitle() {
 		&& Core::App().domain().accountsAuthedCount() > 1)
 		? st::wrap_rtl(session->authedName())
 		: QString();
+	// Custom build: tell official and self-hosted chats apart in the title.
+	const auto serverTag = session
+		? (CustomServers::MatchesAccount(session->session().account().index())
+			? u" \u2014 自建"_q
+			: u" \u2014 官方"_q)
+		: QString();
 	const auto separateSharedMediaTitle = session
 		? TitleFromSeparateSharedMedia(settings, session->windowId())
 		: QString();
 	if (!separateSharedMediaTitle.isEmpty()) {
-		setTitle(separateSharedMediaTitle + suffix);
+		setTitle(separateSharedMediaTitle + serverTag + suffix);
 		return;
 	}
 	const auto key = (session && !settings.hideChatName)
@@ -932,7 +939,7 @@ void MainWindow::updateTitle() {
 		: Dialogs::Key();
 	const auto thread = key ? key.thread() : nullptr;
 	if (!thread) {
-		setTitle((user.isEmpty() ? u"Telegram"_q : user) + added + suffix);
+		setTitle((user.isEmpty() ? u"Telegram"_q : user) + added + serverTag + suffix);
 		return;
 	}
 	const auto history = thread->owningHistory();
@@ -952,7 +959,7 @@ void MainWindow::updateTitle() {
 		: !added.isEmpty()
 		? u" \u2013"_q
 		: QString();
-	setTitle(primary + middle + added + suffix);
+	setTitle(primary + middle + added + serverTag + suffix);
 }
 
 QRect MainWindow::computeDesktopRect() const {

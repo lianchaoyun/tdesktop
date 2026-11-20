@@ -2187,11 +2187,18 @@ void SendFilesBox::setupSendWayControls() {
 		!_sendWay.current().sendImagesAsPhotos(),
 		_st.files.checkbox,
 		_st.files.check);
+	_sendOriginalPhotos.create(
+		this,
+		u"不压缩原图"_q,
+		_sendWay.current().sendOriginalPhotos(),
+		_st.files.checkbox,
+		_st.files.check);
 
 	_sendWay.changes(
 	) | rpl::on_next([=](SendFilesWay value) {
 		_groupFiles->setChecked(value.groupFiles());
 		_sendImagesAsPhotos->setChecked(!value.sendImagesAsPhotos());
+		_sendOriginalPhotos->setChecked(value.sendOriginalPhotos());
 	}, lifetime());
 
 	_groupFiles->checkedChanges(
@@ -2222,6 +2229,22 @@ void SendFilesBox::setupSendWayControls() {
 		} else {
 			Ui::PostponeCall(_sendImagesAsPhotos.data(), [=] {
 				_sendImagesAsPhotos->setChecked(!checked);
+			});
+		}
+	}, lifetime());
+
+	_sendOriginalPhotos->checkedChanges(
+	) | rpl::on_next([=](bool checked) {
+		auto sendWay = _sendWay.current();
+		if (sendWay.sendOriginalPhotos() == checked) {
+			return;
+		}
+		sendWay.setSendOriginalPhotos(checked);
+		if (checkWithWay(sendWay)) {
+			_sendWay = sendWay;
+		} else {
+			Ui::PostponeCall(_sendOriginalPhotos.data(), [=] {
+				_sendOriginalPhotos->setChecked(!checked);
 			});
 		}
 	}, lifetime());
@@ -2278,6 +2301,12 @@ void SendFilesBox::updateSendWayControls() {
 	_sendImagesAsPhotos->setText((_list.files.size() > 1)
 		? tr::lng_send_as_documents(tr::now)
 		: tr::lng_send_as_documents_one(tr::now));
+	const auto hasPhotos = ranges::contains(
+		_list.files,
+		Ui::PreparedFile::Type::Photo,
+		&Ui::PreparedFile::type);
+	_sendOriginalPhotos->setVisible(
+		hasPhotos && _sendWay.current().sendImagesAsPhotos());
 
 	_hintLabel->setVisible(
 		_show->session().settings().photoEditorHintShown()
@@ -2684,9 +2713,10 @@ void SendFilesBox::updateBoxSize() {
 		footerHeight += st::boxPhotoCaptionSkip + _caption->height();
 	}
 	footerHeight += _replyHeaderHeight.current();
-	const auto pairs = std::array<std::pair<RpWidget*, int>, 4>{ {
+	const auto pairs = std::array<std::pair<RpWidget*, int>, 5>{ {
 		{ _groupFiles.data(), st::boxPhotoCompressedSkip },
 		{ _sendImagesAsPhotos.data(), st::boxPhotoCompressedSkip },
+		{ _sendOriginalPhotos.data(), st::boxPhotoCompressedSkip },
 		{ _wayRemember.data(), st::boxPhotoCompressedSkip },
 		{ _hintLabel.data(), st::editMediaLabelMargins.top() },
 	} };
@@ -2758,10 +2788,11 @@ void SendFilesBox::updateControlsGeometry() {
 			_aiButton->raise();
 		}
 	}
-	const auto pairs = std::array<std::pair<RpWidget*, int>, 4>{ {
+	const auto pairs = std::array<std::pair<RpWidget*, int>, 5>{ {
 		{ _hintLabel.data(), st::editMediaLabelMargins.top() },
 		{ _groupFiles.data(), st::boxPhotoCompressedSkip },
 		{ _sendImagesAsPhotos.data(), st::boxPhotoCompressedSkip },
+		{ _sendOriginalPhotos.data(), st::boxPhotoCompressedSkip },
 		{ _wayRemember.data(), st::boxPhotoCompressedSkip },
 	} };
 	for (const auto &pair : ranges::views::reverse(pairs)) {
@@ -2880,6 +2911,7 @@ void SendFilesBox::send(
 	applyBlockChanges();
 	for (auto &item : _list.files) {
 		item.sendLargePhotos = way.sendLargePhotos();
+		item.sendOriginalPhotos = way.sendOriginalPhotos();
 	}
 
 	if ((_limits & SendFilesAllow::OnlyOne)
