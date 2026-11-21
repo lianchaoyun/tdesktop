@@ -365,7 +365,6 @@ void ToggleFavedSticker(
 	Api::ToggleFavedSticker(controller->uiShow(), document, contextId);
 }
 
-void CopyMessageLink(not_null<Main::Session*> session, not_null<HistoryItem*> item);
 void CopyDirectMediaLink(
 	not_null<Main::Session*> session,
 	uint64 id,
@@ -407,17 +406,14 @@ void AddPhotoActions(
 			&st::menuIconStickers);
 	}
 	if (item) {
-		menu->addAction(u"复制消息链接"_q, [=] {
-			CopyMessageLink(&photo->session(), item);
+		menu->addAction(u"复制资源直链"_q, [=] {
+			CopyDirectMediaLink(
+				&photo->session(),
+				photo->id,
+				photo->accessHash(),
+				true);
 		}, &st::menuIconCopy);
 	}
-	menu->addAction(u"复制资源直链"_q, [=] {
-		CopyDirectMediaLink(
-			&photo->session(),
-			photo->id,
-			photo->accessHash(),
-			true);
-	}, &st::menuIconCopy);
 }
 
 void SaveGif(
@@ -463,20 +459,6 @@ void ShowInFolder(not_null<DocumentData*> document) {
 	return session->appConfig().get<QString>(
 		u"media_base_url"_q,
 		fallback).trimmed();
-}
-
-void CopyMessageLink(not_null<Main::Session*> session, not_null<HistoryItem*> item) {
-	if (!item->hasDirectLink()) {
-		Ui::Toast::Show(u"该消息没有公开链接"_q);
-		return;
-	}
-	QGuiApplication::clipboard()->setText(
-		session->api().exportDirectMessageLink(
-			item,
-			false,
-			false,
-			std::nullopt));
-	Ui::Toast::Show(u"消息链接已复制"_q);
 }
 
 void CopyDirectMediaLink(
@@ -591,11 +573,6 @@ void AddDocumentActions(
 		}
 	}
 	AddSaveDocumentAction(menu, item, document, list);
-	if (item) {
-		menu->addAction(u"复制消息链接"_q, [=] {
-			CopyMessageLink(session, item);
-		}, &st::menuIconCopy);
-	}
 	menu->addAction(u"复制资源直链"_q, [=] {
 		CopyDirectMediaLink(
 			session,
